@@ -7,7 +7,7 @@ A Spring Boot backend project for managing site-banner data using Redis as a cac
 
 The project follows a cache-aside caching pattern using Redis.
 
-![Site Banner Architecture](architecture.png)
+![Site Banner Architecture](https://raw.githubusercontent.com/sumanth2005-hub/Sitebanner_redis/main/architecture.png)
 
 ## Request Flow
 
