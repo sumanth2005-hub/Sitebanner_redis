@@ -15,8 +15,8 @@ public class sitebanner {
     static final String BANNER_KEY = "app:banner";
     static Jedis jedis = new Jedis("localhost", 6379);
     static String DB_URL = "jdbc:postgresql://localhost:5432/bannerDB";
-    static String DB_USER = "postgres";
-    static String DB_PASS = "postgres";
+    static String DB_USER = "sumanthgowda"; // fixed: no "postgres" role exists on Homebrew Postgres
+    static String DB_PASS = "";             // fixed: trust auth, no password by default
 
     public static void main(String[] args) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(3000), 0);
@@ -40,17 +40,26 @@ public class sitebanner {
                         }
                     }
                     respond(exchange, 200, "{\"message\": \"" + message + "\"}");
-                }else if (method.equals("POST")) {
+
+                } else if (method.equals("POST")) {
                     String body = readBody(exchange);
                     String message = extractMessage(body);
-                    saveToDb(message);
-                    jedis.set(BANNER_KEY, message);
-                    respond(exchange, 200, "{\"success\": true}");
+                    boolean saved = saveToDb(message);
+                    if (saved) {
+                        jedis.set(BANNER_KEY, message);
+                        respond(exchange, 200, "{\"success\": true}");
+                    } else {
+                        respond(exchange, 500, "{\"success\": false, \"error\": \"db write failed\"}");
+                    }
 
                 } else if (method.equals("DELETE")) {
-                    deleteFromDb();
-                    jedis.del(BANNER_KEY);
-                    respond(exchange, 200, "{\"success\": true}");
+                    boolean deleted = deleteFromDb();
+                    if (deleted) {
+                        jedis.del(BANNER_KEY);
+                        respond(exchange, 200, "{\"success\": true}");
+                    } else {
+                        respond(exchange, 500, "{\"success\": false, \"error\": \"db delete failed\"}");
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -83,21 +92,27 @@ public class sitebanner {
         }
         return null;
     }
-    static void saveToDb(String message) {
+
+    static boolean saveToDb(String message) {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
             conn.createStatement().executeUpdate("DELETE FROM banner");
             PreparedStatement ps = conn.prepareStatement("INSERT INTO banner(message) VALUES (?)");
             ps.setString(1, message);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();  // <-- exception swallowed here, controller still responds 200
-        }
-    }
-    static void deleteFromDb() {
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
-            conn.createStatement().executeUpdate("DELETE FROM banner");
+            return true;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
+        }
+    }
+
+    static boolean deleteFromDb() {
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+            conn.createStatement().executeUpdate("DELETE FROM banner");
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
         }
     }
 
